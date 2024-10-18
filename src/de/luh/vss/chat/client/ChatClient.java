@@ -13,6 +13,8 @@ public class ChatClient {
 	}
 
 	public void start() throws IOException {
+		System.out.println("Congratulation for successfully setting up your environment for Assignment 1!");
+		
 		// implement your chat client logic here
 	}
 
