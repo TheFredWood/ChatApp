@@ -7,7 +7,8 @@ import java.util.Map;
 
 public enum MessageType {
 	ERROR_RESPONSE(0, Message.ErrorResponse.class), REGISTER_REQUEST(1, Message.RegisterRequest.class),
-	REGISTER_RESPONSE(2, Message.RegisterResponse.class), CHAT_MESSAGE(4, Message.ChatMessage.class);
+	REGISTER_RESPONSE(2, Message.RegisterResponse.class), CHAT_MESSAGE(4, Message.ChatMessage.class),
+	HEARTBEAT(5, Message.HeartbeatMessage.class), CLIENT(6, Message.ClientQuery.class);
 
 	private final int msgType;
 
@@ -32,7 +33,7 @@ public enum MessageType {
 		}
 	}
 
-	int msgType() {
+	public int msgType() {
 		return msgType;
 	}
 

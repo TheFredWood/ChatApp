@@ -8,6 +8,68 @@ import java.net.InetAddress;
 import de.luh.vss.chat.common.User.UserId;
 
 public abstract class Message {
+	public static class HeartbeatMessage extends Message {
+		public final UserId userId;
+
+		public HeartbeatMessage(final UserId userId) {
+			this.userId = userId;
+		}
+
+		public HeartbeatMessage(final DataInputStream in) throws IOException {
+			this.userId = new UserId(in.readInt());
+		}
+
+		@Override
+		public MessageType getMessageType() {
+			return MessageType.HEARTBEAT;
+		}
+
+		@Override
+		public void toStream(final DataOutputStream out) throws IOException {
+			out.writeInt(MessageType.HEARTBEAT.msgType());
+			out.writeInt(userId.id());
+		}
+
+		@Override
+		public String toString() {
+			return "HEARTBEAT (" + this.userId + ")";
+		}
+
+	}
+
+	public static class ClientQuery extends Message {
+		public final ClientRequestObject obj;
+
+		public ClientQuery(final ClientRequestObject obj) {
+			this.obj = obj;
+		}
+
+		public ClientQuery(final DataInputStream in) throws IOException {
+			UserId userId = new UserId(in.readInt());
+			boolean exists = in.readBoolean();
+			boolean isOnline = in.readBoolean();
+			this.obj = new ClientRequestObject(userId, exists, isOnline);
+		}
+
+		@Override
+		public MessageType getMessageType() {
+			return MessageType.CLIENT;
+		}
+
+		@Override
+		public void toStream(final DataOutputStream out) throws IOException {
+			out.writeInt(MessageType.CLIENT.msgType());
+			out.writeInt(obj.userId.id());
+			out.writeBoolean(obj.exists);
+			out.writeBoolean(obj.isOnline);
+		}
+
+		@Override
+		public String toString() {
+			return "CLIENT (" + obj.toString() + ")";
+		}
+
+	}
 
 	public static class RegisterRequest extends Message {
 
@@ -42,6 +104,14 @@ public abstract class Message {
 
 		public UserId getUserId() {
 			return id;
+		}
+
+		public InetAddress getAddress() {
+			return address;
+		}
+
+		public int getPort() {
+			return port;
 		}
 
 		@Override
