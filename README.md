@@ -26,4 +26,4 @@ Dies ist ein Simples Chatprogramm.
 - Man wird darauf hingewiesen, wenn man an eine nicht vergebene UserId schreiben möchte, dass diese nicht existiert
 - Man wird darauf hingewiesen, wenn man an eine nicht mehr verbundene UserId schreiben möchte, dass diese offline ist
 - Clients schicken automatisch Hearbeat Signale an den Server
-
+- UserIds werden für die Erste Adresse reserviert und können nicht von jemand anderes genommen werden, selbst wenn die erste Person die Verbindung abbricht
