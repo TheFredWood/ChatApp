@@ -226,16 +226,12 @@ public class ChatClient {
 		ServerSocket serverSocket = new ServerSocket(port);
 		serverSocket.setSoTimeout(3000);
 		try {
-			// System.out.print("trying for message...");
 			Socket socket = serverSocket.accept();
-			// System.out.println("got message");
 			InputStream in = socket.getInputStream();
 			DataInputStream dataIn = new DataInputStream(in);
 			Message message = Message.parse(dataIn);
 			if (message.getMessageType() == MessageType.CHAT_MESSAGE) {
 				ChatMessage chatMessage = (ChatMessage) message;
-				System.out.println("Message from " + chatMessage.getRecipient());
-				// System.out.println(chatMessage.getMessage());
 				updateMessage(chatMessage.getMessage());
 			}
 			socket.close();
