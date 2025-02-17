@@ -1,27 +1,26 @@
 package de.luh.vss.chat.common;
 
 import java.time.LocalDateTime;
-import java.net.InetAddress;
+import java.net.Socket;
 
 public class Client {
 	public boolean isOnline;
 	public LocalDateTime lastOnline;
-	public InetAddress address;
-	public int port;
 	public User.UserId userId;
+	public Socket clientSocket;
 
-	public Client(boolean isOnline, LocalDateTime lastOnline, InetAddress address, int port,
-			User.UserId userId) {
+	public Client(boolean isOnline, LocalDateTime lastOnline,
+			User.UserId userId, Socket clientSocket) {
 		this.isOnline = isOnline;
 		this.lastOnline = lastOnline;
-		this.address = address;
-		this.port = port;
 		this.userId = userId;
+		this.clientSocket = clientSocket;
 	}
 
 	@Override
 	public String toString() {
-		return address.toString() + " " + port + " " + userId.id();
+		return clientSocket.getLocalAddress().toString() + " " + clientSocket.getLocalPort() + " "
+				+ userId.id();
 	}
 
 }

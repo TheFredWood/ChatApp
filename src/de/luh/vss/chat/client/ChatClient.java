@@ -4,8 +4,6 @@ import java.io.OutputStream;
 import java.io.InputStream;
 import java.io.*;
 import java.net.*;
-import java.time.LocalDateTime;
-import java.time.Duration;
 import java.util.Scanner;
 
 import de.luh.vss.chat.common.ClientRequestObject;
@@ -15,7 +13,6 @@ import de.luh.vss.chat.common.MessageType;
 import de.luh.vss.chat.common.User.*;
 
 import com.sun.net.httpserver.HttpServer;
-import com.sun.net.httpserver.HttpHandler;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -25,7 +22,10 @@ import java.util.*;
 
 public class ChatClient {
 	UserId userId;
-	int port;
+	Socket socket;
+	DataInputStream dataIn;
+	DataOutputStream dataOut;
+
 	private static final BlockingQueue<String> messageQueue = new LinkedBlockingQueue<>();
 
 	public static void main(String... args) throws Exception {
@@ -141,11 +141,7 @@ public class ChatClient {
 		try {
 			while (true) {
 				HeartbeatMessage message = new HeartbeatMessage(userId);
-				Socket socket = new Socket("127.0.0.1", 8081);
-				OutputStream out = socket.getOutputStream();
-				DataOutputStream dataOut = new DataOutputStream(out);
 				message.toStream(dataOut);
-				socket.close();
 				Thread.sleep(10000);
 
 			}
@@ -158,12 +154,8 @@ public class ChatClient {
 	public void sendChatMessage(ChatMessage message) {
 		try {
 			System.out.println("sending" + message.toString());
-			Socket socket = new Socket("127.0.0.1", 8081);
-			OutputStream out = socket.getOutputStream();
-			DataOutputStream dataOut = new DataOutputStream(out);
 			message.toStream(dataOut);
 			updateMessage(message.getMessage());
-			socket.close();
 		} catch (Exception e) {
 			System.out.println(e.getMessage());
 			System.out.println(e.getStackTrace());
@@ -171,11 +163,6 @@ public class ChatClient {
 	}
 
 	public ClientRequestObject getClientRequestObject(UserId userId) throws Exception {
-		Socket socket = new Socket("127.0.0.1", 8081);
-		OutputStream out = socket.getOutputStream();
-		DataOutputStream dataOut = new DataOutputStream(out);
-		InputStream in = socket.getInputStream();
-		DataInputStream dataIn = new DataInputStream(in);
 		ClientRequestObject obj = new ClientRequestObject(userId, false, false);
 		ClientQuery query = new ClientQuery(obj);
 		query.toStream(dataOut);
@@ -183,10 +170,8 @@ public class ChatClient {
 		Message returnMessage = Message.parse(dataIn);
 		if (returnMessage.getMessageType() == MessageType.CLIENT) {
 			ClientQuery returnQuery = (ClientQuery) returnMessage;
-			socket.close();
 			return returnQuery.obj;
 		}
-		socket.close();
 		throw new Exception("Expected ClientRequestObject, got " + returnMessage.getMessageType());
 
 	}
@@ -194,6 +179,9 @@ public class ChatClient {
 	public void start() throws Exception {
 		Scanner scanner = new Scanner(System.in);
 		ClientRequestObject obj;
+		socket = new Socket("127.0.0.1", 8081);
+		dataOut = new DataOutputStream(socket.getOutputStream());
+		dataIn = new DataInputStream(socket.getInputStream());
 		do {
 			System.out.println("What UserId?");
 			UserId id = new UserId(scanner.nextInt());
@@ -208,13 +196,7 @@ public class ChatClient {
 
 		startWebsite();
 
-		Socket socket = new Socket("127.0.0.1", 8081);
-		OutputStream out = socket.getOutputStream();
-		DataOutputStream dataOut = new DataOutputStream(out);
-		InputStream in = socket.getInputStream();
-		DataInputStream dataIn = new DataInputStream(in);
-		port = socket.getLocalPort();
-		System.out.println(port);
+		System.out.println(socket.getLocalPort());
 		try {
 			RegisterRequest request = new RegisterRequest(userId,
 					InetAddress.getByName("127.0.0.1"), 8081);
@@ -226,7 +208,6 @@ public class ChatClient {
 		}
 		Message response = Message.parse(dataIn);
 		if (response.getMessageType() == MessageType.REGISTER_RESPONSE) {
-			socket.close();
 		}
 		new Thread(() -> scanMessages()).start();
 		new Thread(() -> sendHeartbeatMessage()).start();
@@ -234,20 +215,14 @@ public class ChatClient {
 
 	public void scanMessages() {
 		try {
-			ServerSocket serverSocket = new ServerSocket(port);
 			while (true) {
-				System.out.println("Waiting for message on port " + serverSocket.getLocalPort());
-				Socket socket = serverSocket.accept();
-				System.out.println("Got Message");
-				InputStream in = socket.getInputStream();
-				DataInputStream dataIn = new DataInputStream(in);
 				Message message = Message.parse(dataIn);
+				System.out.println("Got Message");
 				if (message.getMessageType() == MessageType.CHAT_MESSAGE) {
 					ChatMessage chatMessage = (ChatMessage) message;
 					System.out.println(chatMessage.toString());
 					updateMessage(chatMessage.getMessage());
 				}
-				socket.close();
 
 			}
 		} catch (Exception e) {
