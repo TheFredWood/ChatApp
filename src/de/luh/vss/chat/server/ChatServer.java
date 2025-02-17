@@ -30,20 +30,17 @@ public class ChatServer {
 			return;
 		}
 
+		System.out.println("Starting checks");
+		new Thread(() -> checkOnline()).start();
 		while (true) {
-			checkOnline();
 			try {
-				serverSocket.setSoTimeout(1000);
 				Socket clientSocket = serverSocket.accept();
-				System.out.println("accepted");
 				OutputStream out = clientSocket.getOutputStream();
 				DataOutputStream dataOut = new DataOutputStream(out);
 				InputStream in = clientSocket.getInputStream();
 				DataInputStream dataIn = new DataInputStream(in);
 
-				System.out.println("parsing");
 				Message message = Message.parse(dataIn);
-				System.out.println("done");
 				InetAddress address = clientSocket.getInetAddress();
 				int clientPort = clientSocket.getPort();
 
@@ -53,6 +50,7 @@ public class ChatServer {
 					System.out.println("Register request received: " + request.toString());
 					Client client = new Client(true, LocalDateTime.now(), address,
 							clientPort, request.getUserId());
+					System.out.println("adding client");
 					clients.add(client);
 					Message.RegisterResponse response = new Message.RegisterResponse();
 					response.toStream(dataOut);
@@ -79,9 +77,7 @@ public class ChatServer {
 
 				if (message.getMessageType() == MessageType.HEARTBEAT) {
 					Message.HeartbeatMessage heartbeat = (Message.HeartbeatMessage) message;
-					System.out.println("Heartbeat received " + heartbeat.toString());
-					for (int i = 0; i < this.clients.size(); i++) {
-						Client client = this.clients.get(i);
+					for (Client client : clients) {
 						if (client.userId.id() == heartbeat.userId.id()) {
 							updateOnline(client);
 						}
@@ -105,14 +101,11 @@ public class ChatServer {
 								chatMessage.getMessage());
 						System.out.println("sending to " + client.userId.id());
 						forwardMessage.toStream(dataOut);
-						Thread.sleep(3000);
 						socket.close();
+						System.out.println("done sending");
 					}
 
 				}
-				Thread.sleep(100);
-			} catch (SocketTimeoutException e) {
-				System.out.println("no Message gotten");
 			} catch (Exception e) {
 				System.out.println(e.getMessage());
 				System.out.println(e.getStackTrace());
@@ -132,11 +125,16 @@ public class ChatServer {
 	}
 
 	public void checkOnline() {
-		for (int i = 0; i < this.clients.size(); i++) {
-			Client client = clients.get(i);
-			Duration duration = Duration.between(client.lastOnline, LocalDateTime.now());
-			if (duration.getSeconds() > 3 && client.isOnline == true) {
-				updateOffline(client);
+		while (true) {
+			for (Client client : clients) {
+				System.out.println("Here");
+
+				System.out.println(client.toString());
+				Duration duration = Duration.between(client.lastOnline, LocalDateTime.now());
+				System.out.println(duration.getSeconds());
+				if (duration.getSeconds() > 20 && client.isOnline == true) {
+					updateOffline(client);
+				}
 			}
 		}
 	}

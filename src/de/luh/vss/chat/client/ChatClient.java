@@ -15,11 +15,13 @@ import de.luh.vss.chat.common.MessageType;
 import de.luh.vss.chat.common.User.*;
 
 import com.sun.net.httpserver.HttpServer;
+import com.sun.net.httpserver.HttpHandler;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.*;
 
 public class ChatClient {
 	UserId userId;
@@ -38,6 +40,26 @@ public class ChatClient {
 
 	public void startWebsite() throws Exception {
 		HttpServer server = HttpServer.create(new InetSocketAddress(userId.id()), 0);
+		server.createContext("/clicked", exchange -> {
+			System.out.println("Sending Message ");
+			String query = exchange.getRequestURI().getQuery();
+			String[] strings = query.split("&");
+			List<String> result = new ArrayList<String>();
+			for (String s : strings) {
+				String[] a = s.split("=");
+				result.add(a[1]);
+			}
+			int i = Integer.parseInt(result.get(1));
+			UserId u = new UserId(i);
+			ChatMessage message = new ChatMessage(u, userId.id() + ": " + result.get(0));
+			String response = "<div>Message Sent!</div>";
+			exchange.getResponseHeaders().set("Content-Type", "text/html");
+			byte[] responseBytes = response.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+			exchange.sendResponseHeaders(200, responseBytes.length);
+			exchange.getResponseBody().write(responseBytes);
+			exchange.getResponseBody().close();
+			sendChatMessage(message);
+		});
 
 		server.createContext("/sse", exchange -> {
 			exchange.getResponseHeaders().set("Content-Type", "text/event-stream");
@@ -67,8 +89,10 @@ public class ChatClient {
 					<html>
 					<head>
 					    <title>Chatroom</title>
+					    <script src="https://unpkg.com/htmx.org@2.0.4" integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+" crossorigin="anonymous"></script>
 					</head>
 					<body>
+
 					    <h1>Chatroom</h1>
 					    <div id="messages"></div>
 					    <script>
@@ -80,6 +104,17 @@ public class ChatClient {
 					            messages.appendChild(newMessage);
 					        };
 					    </script>
+					    <button hx-get="/clicked"
+					    hx-trigger="click"
+					    hx-target="#parent-div"
+					    hx-include="#parent-div, #other-div">
+					    Click Me!
+					    </button>
+					    <div>
+						<textarea id="other-div" name="message" rows="4" cols="30">Message</textarea>
+						<textarea id="parent-div" name="message2" rows="1" cols="8">UserId</textarea>
+
+					    </div>
 					</body>
 					</html>
 					""";
@@ -102,17 +137,27 @@ public class ChatClient {
 		messageQueue.add(message);
 	}
 
-	public void sendHeartbeatMessage() throws Exception {
-		HeartbeatMessage message = new HeartbeatMessage(userId);
-		Socket socket = new Socket("127.0.0.1", 8081);
-		OutputStream out = socket.getOutputStream();
-		DataOutputStream dataOut = new DataOutputStream(out);
-		message.toStream(dataOut);
-		socket.close();
+	public void sendHeartbeatMessage() {
+		try {
+			while (true) {
+				HeartbeatMessage message = new HeartbeatMessage(userId);
+				Socket socket = new Socket("127.0.0.1", 8081);
+				OutputStream out = socket.getOutputStream();
+				DataOutputStream dataOut = new DataOutputStream(out);
+				message.toStream(dataOut);
+				socket.close();
+				Thread.sleep(10000);
+
+			}
+
+		} catch (Exception e) {
+		}
+
 	}
 
 	public void sendChatMessage(ChatMessage message) {
 		try {
+			System.out.println("sending" + message.toString());
 			Socket socket = new Socket("127.0.0.1", 8081);
 			OutputStream out = socket.getOutputStream();
 			DataOutputStream dataOut = new DataOutputStream(out);
@@ -138,8 +183,10 @@ public class ChatClient {
 		Message returnMessage = Message.parse(dataIn);
 		if (returnMessage.getMessageType() == MessageType.CLIENT) {
 			ClientQuery returnQuery = (ClientQuery) returnMessage;
+			socket.close();
 			return returnQuery.obj;
 		}
+		socket.close();
 		throw new Exception("Expected ClientRequestObject, got " + returnMessage.getMessageType());
 
 	}
@@ -156,6 +203,7 @@ public class ChatClient {
 			}
 
 		} while (obj.exists == true);
+		scanner.close();
 		userId = obj.userId;
 
 		startWebsite();
@@ -166,6 +214,7 @@ public class ChatClient {
 		InputStream in = socket.getInputStream();
 		DataInputStream dataIn = new DataInputStream(in);
 		port = socket.getLocalPort();
+		System.out.println(port);
 		try {
 			RegisterRequest request = new RegisterRequest(userId,
 					InetAddress.getByName("127.0.0.1"), 8081);
@@ -180,70 +229,32 @@ public class ChatClient {
 			socket.close();
 		}
 		new Thread(() -> scanMessages()).start();
-
-		while (true) {
-			System.out.println("Send Message?");
-			scanner.nextLine();
-			String text = scanner.nextLine();
-			System.out.println("Recipient:");
-			int recipientId = scanner.nextInt();
-			ClientRequestObject requestObject = getClientRequestObject(new UserId(recipientId));
-			if (requestObject.exists == false) {
-				System.out.println("Sorry, there is no such User");
-				continue;
-			}
-			if (requestObject.isOnline == false) {
-				System.out.println("Sorry, recipient is no longer online");
-				continue;
-			}
-			ChatMessage message = new ChatMessage(new UserId(recipientId), userId.id() + ": " + text);
-			sendChatMessage(message);
-		}
+		new Thread(() -> sendHeartbeatMessage()).start();
 	}
 
 	public void scanMessages() {
-		LocalDateTime heartbeatTime = LocalDateTime.now();
-
-		while (true) {
-			try {
-				tryGetMessage();
-				if (Duration.between(heartbeatTime, LocalDateTime.now()).getSeconds() > 1) {
-					sendHeartbeatMessage();
-					heartbeatTime = LocalDateTime.now();
-				}
-
-			} catch (Exception e) {
-				System.out.println("Something went wrong");
-				System.out.println(e.getMessage());
-				System.out.println(e.getStackTrace());
-				return;
-			}
-		}
-
-	}
-
-	public void tryGetMessage() throws Exception {
-		ServerSocket serverSocket = new ServerSocket(port);
-		serverSocket.setSoTimeout(3000);
 		try {
-			Socket socket = serverSocket.accept();
-			InputStream in = socket.getInputStream();
-			DataInputStream dataIn = new DataInputStream(in);
-			Message message = Message.parse(dataIn);
-			if (message.getMessageType() == MessageType.CHAT_MESSAGE) {
-				ChatMessage chatMessage = (ChatMessage) message;
-				updateMessage(chatMessage.getMessage());
-			}
-			socket.close();
+			ServerSocket serverSocket = new ServerSocket(port);
+			while (true) {
+				System.out.println("Waiting for message on port " + serverSocket.getLocalPort());
+				Socket socket = serverSocket.accept();
+				System.out.println("Got Message");
+				InputStream in = socket.getInputStream();
+				DataInputStream dataIn = new DataInputStream(in);
+				Message message = Message.parse(dataIn);
+				if (message.getMessageType() == MessageType.CHAT_MESSAGE) {
+					ChatMessage chatMessage = (ChatMessage) message;
+					System.out.println(chatMessage.toString());
+					updateMessage(chatMessage.getMessage());
+				}
+				socket.close();
 
-		} catch (SocketTimeoutException e) {
-			// System.out.println("no message apparently");
+			}
 		} catch (Exception e) {
 			System.out.println("Something went wrong");
 			System.out.println(e.getMessage());
 			System.out.println(e.getStackTrace());
+			return;
 		}
-		serverSocket.close();
-
 	}
 }
