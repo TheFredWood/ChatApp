@@ -1,6 +1,7 @@
 package de.luh.vss.chat.common;
 
 import java.net.SocketAddress;
+import java.util.List;
 
 public class User {
 
@@ -22,11 +23,20 @@ public class User {
 
 	public record UserId(int id) {
 		public static UserId BROADCAST = new UserId(0);
-		
+
 		public UserId(int id) {
 			if (id < 0 || id > 9999)
 				throw new IllegalArgumentException("wrong user ID");
 			this.id = id;
+		}
+
+		public Client getClientById(List<Client> clients) {
+			for (Client client : clients) {
+				if (client.userId.id() == this.id()) {
+					return client;
+				}
+			}
+			return null;
 		}
 
 	}

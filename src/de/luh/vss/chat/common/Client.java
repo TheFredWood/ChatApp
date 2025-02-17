@@ -23,4 +23,17 @@ public class Client {
 				+ userId.id();
 	}
 
+	public void updateOffline() {
+		System.out.println("Client " + this.userId + " is now offline.");
+		this.isOnline = false;
+	}
+
+	public void updateOnline() {
+		this.lastOnline = LocalDateTime.now();
+		if (this.isOnline == false) {
+			System.out.println("Client " + this.userId + " is now online.");
+		}
+		this.isOnline = true;
+	}
+
 }

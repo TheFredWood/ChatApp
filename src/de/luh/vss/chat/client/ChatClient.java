@@ -158,7 +158,7 @@ public class ChatClient {
 			updateMessage(message.getMessage());
 		} catch (Exception e) {
 			System.out.println(e.getMessage());
-			System.out.println(e.getStackTrace());
+			System.out.println(e.getStackTrace().toString());
 		}
 	}
 
@@ -204,7 +204,7 @@ public class ChatClient {
 
 		} catch (Exception e) {
 			System.out.println(e.getMessage());
-			System.out.println(e.getStackTrace());
+			System.out.println(e.getStackTrace().toString());
 		}
 		Message response = Message.parse(dataIn);
 		if (response.getMessageType() == MessageType.REGISTER_RESPONSE) {
@@ -228,7 +228,7 @@ public class ChatClient {
 		} catch (Exception e) {
 			System.out.println("Something went wrong");
 			System.out.println(e.getMessage());
-			System.out.println(e.getStackTrace());
+			System.out.println(e.getStackTrace().toString());
 			return;
 		}
 	}
